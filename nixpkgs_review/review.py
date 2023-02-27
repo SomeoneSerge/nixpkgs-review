@@ -88,6 +88,7 @@ class Review:
         system: str,
         allow: AllowedFeatures,
         build_graph: str,
+        extra_nixpkgs_config: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -113,6 +114,7 @@ class Review:
         self.allow = allow
         self.sandbox = sandbox
         self.build_graph = build_graph
+        self.extra_nixpkgs_config = extra_nixpkgs_config
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -187,6 +189,7 @@ class Review:
             self.skip_packages_regex,
             self.system,
             self.allow,
+            self.extra_nixpkgs_config,
         )
         return nix_build(
             packages,
@@ -195,6 +198,7 @@ class Review:
             self.system,
             self.allow,
             self.build_graph,
+            self.extra_nixpkgs_config,
         )
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -241,7 +245,7 @@ class Review:
         os.environ["NIX_PATH"] = path.as_posix()
         if pr:
             os.environ["PR"] = str(pr)
-        report = Report(self.system, attr)
+        report = Report(self.system, attr, self.extra_nixpkgs_config)
         report.print_console(pr)
         report.write(path, pr)
 
@@ -363,13 +367,14 @@ def package_attrs(
     package_set: Set[str],
     system: str,
     allow: AllowedFeatures,
+    extra_nixpkgs_config: str,
     ignore_nonexisting: bool = True,
 ) -> Dict[str, Attr]:
     attrs: Dict[str, Attr] = {}
 
     nonexisting = []
 
-    for attr in nix_eval(package_set, system, allow):
+    for attr in nix_eval(package_set, system, allow, extra_nixpkgs_config):
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
@@ -388,12 +393,14 @@ def join_packages(
     specified_packages: Set[str],
     system: str,
     allow: AllowedFeatures,
+    extra_nixpkgs_config: str,
 ) -> Set[str]:
-    changed_attrs = package_attrs(changed_packages, system, allow)
+    changed_attrs = package_attrs(changed_packages, system, allow, extra_nixpkgs_config)
     specified_attrs = package_attrs(
         specified_packages,
         system,
         allow,
+        extra_nixpkgs_config,
         ignore_nonexisting=False,
     )
 
@@ -424,6 +431,7 @@ def filter_packages(
     skip_package_regexes: List[Pattern[str]],
     system: str,
     allow: AllowedFeatures,
+    extra_nixpkgs_config: str,
 ) -> Set[str]:
     packages: Set[str] = set()
 
@@ -441,6 +449,7 @@ def filter_packages(
             specified_packages,
             system,
             allow,
+            extra_nixpkgs_config,
         )
 
     for attr in changed_packages:
@@ -516,6 +525,7 @@ def review_local_revision(
             system=args.system,
             allow=allow,
             build_graph=args.build_graph,
+            extra_nixpkgs_config=args.extra_nixpkgs_config,
         )
         review.review_commit(builddir.path, args.branch, commit, staged, print_result)
         return builddir.path

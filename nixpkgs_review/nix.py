@@ -182,6 +182,7 @@ def nix_eval(
     attrs: Set[str],
     system: str,
     allow: AllowedFeatures,
+    extra_nixpkgs_config: str,
 ) -> List[Attr]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)
     delete = True
@@ -203,7 +204,7 @@ def nix_eval(
             if allow.ifd
             else "--no-allow-import-from-derivation",
             "--expr",
-            f"(import {eval_script} {{ allowAliases = {allowAliases}; attr-json = {attr_json.name}; }})",
+            f"(import {eval_script} {{ allowAliases = {allowAliases}; attr-json = {attr_json.name}; extra-nixpkgs-config = {extra_nixpkgs_config}; }})",
         ]
 
         try:
@@ -231,12 +232,13 @@ def nix_build(
     system: str,
     allow: AllowedFeatures,
     build_graph: str,
+    extra_nixpkgs_config: str,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names, system, allow)
+    attrs = nix_eval(attr_names, system, allow, extra_nixpkgs_config)
     filtered = []
     for attr in attrs:
         if not (attr.broken or attr.blacklisted):
