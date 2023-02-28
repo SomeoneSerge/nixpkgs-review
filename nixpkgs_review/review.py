@@ -147,8 +147,18 @@ class Review:
         Review a local git commit
         """
         self.git_worktree(base_commit)
+
+        entry_point = Path(self.worktree_dir(), "with-extra-config.nix")
+
+        with entry_point.open(mode="w") as f:
+            nixpkgs_config = self.extra_nixpkgs_config or "{ }"
+            print("{ system ? builtins.currentSystem, ... }@args:", file=f)
+            print(
+                f"import ./. {{ inherit system; }} // args // {nixpkgs_config}", file=f
+            )
+
         base_packages = list_packages(
-            str(self.worktree_dir()),
+            entry_point.as_posix(),
             self.system,
             self.allow,
         )
@@ -159,7 +169,7 @@ class Review:
             self.git_merge(reviewed_commit)
 
         merged_packages = list_packages(
-            str(self.worktree_dir()),
+            entry_point.as_posix(),
             self.system,
             self.allow,
             check_meta=True,
